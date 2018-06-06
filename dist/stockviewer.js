@@ -279,6 +279,13 @@ var StockViewer = (function () {
         var hWidth = this.context.canvas.width - this.option.priceTextWidth;
         var lastHorizontalImage = this.context.getImageData(0, hY, hWidth, 15);
         this.storedImages['lastHorizontalImage'] = new CanvasImage(lastHorizontalImage, 0, hY);
+        var lastPriceImage = this.context.getImageData(hWidth, Y - 30, this.option.priceTextWidth, 50);
+        this.storedImages['lastPriceImage'] = new CanvasImage(lastPriceImage, hWidth, Y - 30);
+        this.context.fillStyle = this.option.hoverLineColor;
+        this.context.fillRect(hWidth, Y - 20, this.option.priceTextWidth, 30);
+        this.context.font = '15px Arial';
+        this.context.fillStyle = 'white';
+        this.context.fillText(record.closedPrice.toString(), hWidth + 5, Y);
         this.context.beginPath();
         this.context.moveTo(hoverCoordinate.middleX, 0);
         this.context.lineTo(hoverCoordinate.middleX, this.context.canvas.height);
@@ -332,16 +339,16 @@ var StockViewer = (function () {
     };
     StockViewer.prototype.cancelHoverLine = function () {
         if (this.lastHoverIndex > -1) {
-            var r2 = this.coordinateRecord[this.lastHoverIndex];
-            var r1 = this.record[this.lastHoverIndex];
-            var Y = this.computePriceY(r1.closedPrice);
             var lastVerticalImage = this.storedImages['lastVerticalImage'];
             var lastHorizontalImage = this.storedImages['lastHorizontalImage'];
+            var lastPriceImage = this.storedImages['lastPriceImage'];
             this.context.putImageData(lastVerticalImage.image, lastVerticalImage.x, lastVerticalImage.y);
             this.context.putImageData(lastHorizontalImage.image, lastHorizontalImage.x, lastHorizontalImage.y);
+            this.context.putImageData(lastPriceImage.image, lastPriceImage.x, lastPriceImage.y);
             this.lastHoverIndex = -1;
             this.storedImages['lastVerticalImage'] = null;
             this.storedImages['lastHorizontalImage'] = null;
+            this.storedImages['lastPriceImage'] = null;
         }
     };
     StockViewer.prototype.onCanvasKeyDown = function () {

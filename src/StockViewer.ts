@@ -380,11 +380,16 @@ class StockViewer {
         const lastHorizontalImage = this.context.getImageData( 0, hY, hWidth, 15 );
         this.storedImages['lastHorizontalImage'] = new CanvasImage(lastHorizontalImage, 0, hY);
 
+        // record hover price region image
+        const lastPriceImage = this.context.getImageData( hWidth, Y - 30, this.option.priceTextWidth, 50 );
+        this.storedImages['lastPriceImage'] = new CanvasImage(lastPriceImage, hWidth, Y - 30);
 
-        // this.context.font = '15px Arial';
-        // this.context.fillStyle = this.option.hoverLineColor;
-        // this.context.fillText( record.closedPrice.toString(), horizontalWidth - 50, Y );
+        this.context.fillStyle = this.option.hoverLineColor;
+        this.context.fillRect(hWidth, Y - 20, this.option.priceTextWidth, 30);
 
+        this.context.font = '15px Arial';
+        this.context.fillStyle = 'white';
+        this.context.fillText( record.closedPrice.toString(), hWidth + 5, Y );
 
         // draw vertical line
         this.context.beginPath();
@@ -459,21 +464,19 @@ class StockViewer {
     // cancel the hover line on the viewer
     public cancelHoverLine(): void {
         if (this.lastHoverIndex > -1) {
-            const r2 = this.coordinateRecord[this.lastHoverIndex];
-            const r1 = this.record[this.lastHoverIndex];
-            const Y = this.computePriceY(r1.closedPrice);
-
             // put back the original image
             const lastVerticalImage = <CanvasImage>this.storedImages['lastVerticalImage'];
             const lastHorizontalImage = <CanvasImage>this.storedImages['lastHorizontalImage'];
+            const lastPriceImage = <CanvasImage>this.storedImages['lastPriceImage'];
 
             this.context.putImageData(lastVerticalImage.image, lastVerticalImage.x, lastVerticalImage.y);
             this.context.putImageData(lastHorizontalImage.image, lastHorizontalImage.x, lastHorizontalImage.y);
-
+            this.context.putImageData(lastPriceImage.image, lastPriceImage.x, lastPriceImage.y);
 
             this.lastHoverIndex = -1;
             this.storedImages['lastVerticalImage'] = null;
             this.storedImages['lastHorizontalImage'] = null;
+            this.storedImages['lastPriceImage'] = null;
         }
     }
 
