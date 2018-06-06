@@ -33,6 +33,19 @@ var Coordinate = (function () {
     }
     return Coordinate;
 }());
+var CanvasImage = (function () {
+    function CanvasImage(image, x, y) {
+        this.image = image;
+        this.x = x;
+        this.y = y;
+    }
+    return CanvasImage;
+}());
+var Dictionary = (function () {
+    function Dictionary() {
+    }
+    return Dictionary;
+}());
 var StockViewer = (function () {
     function StockViewer(canvasId, record, option) {
         this.canvasId = canvasId;
@@ -41,7 +54,7 @@ var StockViewer = (function () {
         this.defaultOption = {
             volumeHeight: 0,
             viewerHeight: 0,
-            priceTextWidth: 80,
+            priceTextWidth: 50,
             volumeViewerGap: 20,
             priceLineStokeStyle: '#D7D5D5',
             priceBorderColor: 'black',
@@ -78,6 +91,7 @@ var StockViewer = (function () {
         if (this.record.length <= 0) {
             return;
         }
+        this.storedImages = new Dictionary();
         this.coordinateRecord = new Array();
         this.lastHoverIndex = -1;
         this.context.clearRect(0, 0, this.context.canvas.width, this.context.canvas.height);
@@ -85,6 +99,7 @@ var StockViewer = (function () {
         this.computePriceHeight();
         this.computeVolumeHeight();
         this.drawPriceLine();
+        this.drawBaseLine();
         this.draw();
     };
     StockViewer.prototype.initializeOption = function () {
@@ -136,6 +151,22 @@ var StockViewer = (function () {
             this.context.fillText(price.toFixed(0).toString(), width + 10, Y + 5);
             price = price + add;
         }
+    };
+    StockViewer.prototype.drawBaseLine = function () {
+        this.context.beginPath();
+        this.context.moveTo(0, this.option.viewerHeight);
+        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.option.viewerHeight);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = 'black';
+        this.context.stroke();
+        this.context.beginPath();
+        this.context.moveTo(0, this.context.canvas.height);
+        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.context.canvas.height);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = 'black';
+        this.context.stroke();
     };
     StockViewer.prototype.computePriceY = function (price) {
         return this.option.viewerHeight - (((price - this.lowestPrice) / 0.05) * this.pieceHeight);
@@ -237,9 +268,17 @@ var StockViewer = (function () {
         this.context.fillStyle = fillStyle;
         this.context.fill();
     };
-    StockViewer.prototype.showHoverLine = function (hoverCoordinate) {
+    StockViewer.prototype.showHoverLine = function (hoverCoordinate, record) {
         this.cancelHoverLine();
-        this.lastImageData = this.context.getImageData(hoverCoordinate.startX, 0, hoverCoordinate.endX - hoverCoordinate.startX, this.context.canvas.height);
+        var vX = hoverCoordinate.startX - 10;
+        var vWidth = hoverCoordinate.endX - hoverCoordinate.startX + 20;
+        var lastVerticalImage = this.context.getImageData(vX, 0, vWidth, this.context.canvas.height);
+        this.storedImages['lastVerticalImage'] = new CanvasImage(lastVerticalImage, vX, 0);
+        var Y = this.computePriceY(record.closedPrice);
+        var hY = Y - 10;
+        var hWidth = this.context.canvas.width - this.option.priceTextWidth;
+        var lastHorizontalImage = this.context.getImageData(0, hY, hWidth, 15);
+        this.storedImages['lastHorizontalImage'] = new CanvasImage(lastHorizontalImage, 0, hY);
         this.context.beginPath();
         this.context.moveTo(hoverCoordinate.middleX, 0);
         this.context.lineTo(hoverCoordinate.middleX, this.context.canvas.height);
@@ -247,14 +286,21 @@ var StockViewer = (function () {
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.hoverLineColor;
         this.context.stroke();
+        this.context.beginPath();
+        this.context.moveTo(0, Y);
+        this.context.lineTo(hWidth, Y);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = this.option.hoverLineColor;
+        this.context.stroke();
     };
     StockViewer.prototype.hoverLineMoveTo = function (index, showHoverLine) {
         var hoverRecord = this.record[index];
-        if (showHoverLine) {
-            var r1 = this.coordinateRecord[index];
-            this.showHoverLine(r1);
-        }
         if (hoverRecord) {
+            if (showHoverLine) {
+                var r1 = this.coordinateRecord[index];
+                this.showHoverLine(r1, hoverRecord);
+            }
             this.lastHoverIndex = index;
             var len = this.afterCanvasMouseMove.length;
             for (var i = 0; i < len; i++) {
@@ -268,6 +314,7 @@ var StockViewer = (function () {
         var len1 = this.coordinateRecord.length;
         var rect = this.context.canvas.getBoundingClientRect();
         var hoverX = evt.clientX - rect.left;
+        var hoverY = evt.clientY - rect.top;
         for (; index < len1; index++) {
             var r1 = this.coordinateRecord[index];
             if (hoverX >= r1.startX && hoverX <= r1.endX) {
@@ -286,9 +333,15 @@ var StockViewer = (function () {
     StockViewer.prototype.cancelHoverLine = function () {
         if (this.lastHoverIndex > -1) {
             var r2 = this.coordinateRecord[this.lastHoverIndex];
-            this.context.putImageData(this.lastImageData, r2.startX, 0);
+            var r1 = this.record[this.lastHoverIndex];
+            var Y = this.computePriceY(r1.closedPrice);
+            var lastVerticalImage = this.storedImages['lastVerticalImage'];
+            var lastHorizontalImage = this.storedImages['lastHorizontalImage'];
+            this.context.putImageData(lastVerticalImage.image, lastVerticalImage.x, lastVerticalImage.y);
+            this.context.putImageData(lastHorizontalImage.image, lastHorizontalImage.x, lastHorizontalImage.y);
             this.lastHoverIndex = -1;
-            this.lastImageData = null;
+            this.storedImages['lastVerticalImage'] = null;
+            this.storedImages['lastHorizontalImage'] = null;
         }
     };
     StockViewer.prototype.onCanvasKeyDown = function () {

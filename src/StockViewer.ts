@@ -1,5 +1,4 @@
 
-
 class StockRecord {
 
     constructor( public date: Date,
@@ -43,7 +42,16 @@ class Coordinate {
     }
 }
 
+class CanvasImage {
+    constructor(public image: ImageData,
+        public x: number,
+        public y: number) {
+    }
+}
 
+class Dictionary {
+    [index: string]: any;
+}
 
 class StockViewer {
 
@@ -58,7 +66,7 @@ class StockViewer {
     private defaultOption: ViewOption = {
         volumeHeight: 0,
         viewerHeight: 0,
-        priceTextWidth: 80,
+        priceTextWidth: 50,
         volumeViewerGap: 20,
         priceLineStokeStyle: '#D7D5D5',
         priceBorderColor: 'black',
@@ -73,11 +81,10 @@ class StockViewer {
     };
 
     private afterCanvasMouseMove: Array<(data: StockRecord) => void>;
-
     private coordinateRecord: Array<Coordinate>;
 
+    private storedImages: Dictionary;
     private lastHoverIndex: number;
-    private lastImageData: ImageData;
 
     constructor(private canvasId: string,
         private record: StockRecord[],
@@ -120,6 +127,7 @@ class StockViewer {
             return;
         }
 
+        this.storedImages = new Dictionary();
         this.coordinateRecord = new Array<Coordinate>();
         this.lastHoverIndex = -1;
 
@@ -128,6 +136,7 @@ class StockViewer {
         this.computePriceHeight();
         this.computeVolumeHeight();
         this.drawPriceLine();
+        this.drawBaseLine();
         this.draw();
     }
     private initializeOption(): void {
@@ -198,6 +207,26 @@ class StockViewer {
             price = price + add;
         }
     }
+
+    private drawBaseLine(): void {
+
+        this.context.beginPath();
+        this.context.moveTo(0, this.option.viewerHeight);
+        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.option.viewerHeight);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = 'black';
+        this.context.stroke();
+
+        this.context.beginPath();
+        this.context.moveTo(0, this.context.canvas.height);
+        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.context.canvas.height);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = 'black';
+        this.context.stroke();
+    }
+
     // 計算價格的Y軸數值
     private computePriceY(price: number): number {
         return this.option.viewerHeight - (((price - this.lowestPrice) / 0.05) * this.pieceHeight);
@@ -333,13 +362,29 @@ class StockViewer {
         this.context.fill();
     }
 
-    private showHoverLine(hoverCoordinate: Coordinate): void {
+    private showHoverLine(hoverCoordinate: Coordinate, record: StockRecord): void {
 
         this.cancelHoverLine();
 
-        // record original image
-        this.lastImageData = this.context.getImageData(hoverCoordinate.startX, 0,
-            hoverCoordinate.endX - hoverCoordinate.startX, this.context.canvas.height);
+        // copy large image to avoid window is too small
+        // record vertial original image
+        const vX = hoverCoordinate.startX - 10;
+        const vWidth = hoverCoordinate.endX - hoverCoordinate.startX + 20;
+        const lastVerticalImage = this.context.getImageData(vX , 0, vWidth, this.context.canvas.height);
+        this.storedImages['lastVerticalImage'] = new CanvasImage( lastVerticalImage, vX, 0 );
+
+        // record horizon original image
+        const Y = this.computePriceY(record.closedPrice);
+        const hY = Y - 10;
+        const hWidth = this.context.canvas.width - this.option.priceTextWidth;
+        const lastHorizontalImage = this.context.getImageData( 0, hY, hWidth, 15 );
+        this.storedImages['lastHorizontalImage'] = new CanvasImage(lastHorizontalImage, 0, hY);
+
+
+        // this.context.font = '15px Arial';
+        // this.context.fillStyle = this.option.hoverLineColor;
+        // this.context.fillText( record.closedPrice.toString(), horizontalWidth - 50, Y );
+
 
         // draw vertical line
         this.context.beginPath();
@@ -350,17 +395,27 @@ class StockViewer {
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.hoverLineColor;
         this.context.stroke();
+
+        // draw horizontal line
+        this.context.beginPath();
+        this.context.moveTo(0, Y);
+        this.context.lineTo(hWidth, Y);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = this.option.hoverLineColor;
+        this.context.stroke();
     }
 
     private hoverLineMoveTo(index: number, showHoverLine: boolean) {
         const hoverRecord = this.record[index];
 
-        if (showHoverLine) {
-            const r1 = this.coordinateRecord[index];
-            this.showHoverLine(r1);
-        }
-
         if (hoverRecord) {
+
+            if (showHoverLine) {
+                const r1 = this.coordinateRecord[index];
+                this.showHoverLine(r1, hoverRecord);
+            }
+
             this.lastHoverIndex = index;
             // hook method that allow other user to get data
             const len = this.afterCanvasMouseMove.length;
@@ -377,6 +432,7 @@ class StockViewer {
         const len1 = this.coordinateRecord.length;
         const rect = this.context.canvas.getBoundingClientRect();
         const hoverX = evt.clientX - rect.left;
+        const hoverY = evt.clientY - rect.top;
 
         for (; index < len1; index++) {
             const r1 = this.coordinateRecord[index];
@@ -404,11 +460,20 @@ class StockViewer {
     public cancelHoverLine(): void {
         if (this.lastHoverIndex > -1) {
             const r2 = this.coordinateRecord[this.lastHoverIndex];
-            // put back the original image
+            const r1 = this.record[this.lastHoverIndex];
+            const Y = this.computePriceY(r1.closedPrice);
 
-            this.context.putImageData(this.lastImageData, r2.startX, 0);
+            // put back the original image
+            const lastVerticalImage = <CanvasImage>this.storedImages['lastVerticalImage'];
+            const lastHorizontalImage = <CanvasImage>this.storedImages['lastHorizontalImage'];
+
+            this.context.putImageData(lastVerticalImage.image, lastVerticalImage.x, lastVerticalImage.y);
+            this.context.putImageData(lastHorizontalImage.image, lastHorizontalImage.x, lastHorizontalImage.y);
+
+
             this.lastHoverIndex = -1;
-            this.lastImageData = null;
+            this.storedImages['lastVerticalImage'] = null;
+            this.storedImages['lastHorizontalImage'] = null;
         }
     }
 
