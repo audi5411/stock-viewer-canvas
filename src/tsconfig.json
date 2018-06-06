@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "baseUrl": "./",
+    "outFile": "../dist/stockviewer.js",
+	  "module": "none",
+	  "removeComments": true,
+    "sourceMap": false,
+    "target": "es5"
+  },
+  "include": [
+	"./*"
+  ]
+}
