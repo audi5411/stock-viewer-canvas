@@ -24,7 +24,9 @@
         <script>
             function load() {
                 var data = makeTestData();
+                // use new StockViewer() to initial data
                 var sv = new StockViewer('test',data);
+                // display the view
                 sv.display();
             }
 
