@@ -1,4 +1,5 @@
 
+
 class StockRecord {
 
     constructor( public date: Date,
@@ -14,6 +15,7 @@ class ViewOption {
     constructor( public volumeHeight: number,
         public viewerHeight: number,
         public priceTextWidth: number,
+        public dateTextHeight: number,
         public volumeViewerGap: number,
         public priceLineStokeStyle: string,
         public priceBorderColor: string,
@@ -49,6 +51,8 @@ class CanvasImage {
     }
 }
 
+
+
 class Dictionary {
     [index: string]: any;
 }
@@ -67,6 +71,7 @@ class StockViewer {
         volumeHeight: 0,
         viewerHeight: 0,
         priceTextWidth: 50,
+        dateTextHeight: 20,
         volumeViewerGap: 20,
         priceLineStokeStyle: '#D7D5D5',
         priceBorderColor: 'black',
@@ -88,7 +93,7 @@ class StockViewer {
 
     constructor(private canvasId: string,
         private record: StockRecord[],
-        private option?: ViewOption
+        public option?: ViewOption
     ) {
         // view context
         const canvas = <HTMLCanvasElement>document.getElementById(canvasId);
@@ -96,14 +101,13 @@ class StockViewer {
 
         // after mousemove hook function
         this.afterCanvasMouseMove = new Array<(data: StockRecord) => void>();
+        this.option = option || this.defaultOption;
 
         this.initializeOption();
         this.onCanvasMouseMove();
         this.onCanvasKeyDown();
 
-        this.option = option || this.defaultOption;
-
-        if ( this.option.responsive ) {
+        if (this.option.responsive) {
             this.context.canvas.width = this.context.canvas.parentElement.clientWidth;
             this.context.canvas.style.width = this.context.canvas.parentElement.clientWidth + 'px';
         }
@@ -209,7 +213,7 @@ class StockViewer {
     }
 
     private drawBaseLine(): void {
-
+        // draw k chart base line
         this.context.beginPath();
         this.context.moveTo(0, this.option.viewerHeight);
         this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.option.viewerHeight);
@@ -218,15 +222,16 @@ class StockViewer {
         this.context.strokeStyle = 'black';
         this.context.stroke();
 
+        // draw volume chart base line
         this.context.beginPath();
-        this.context.moveTo(0, this.context.canvas.height);
-        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.context.canvas.height);
+        this.context.moveTo(0, this.context.canvas.height - this.option.dateTextHeight);
+        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth,
+            this.context.canvas.height - this.option.dateTextHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = 'black';
         this.context.stroke();
     }
-
     // 計算價格的Y軸數值
     private computePriceY(price: number): number {
         return this.option.viewerHeight - (((price - this.lowestPrice) / 0.05) * this.pieceHeight);
@@ -243,19 +248,57 @@ class StockViewer {
     // draw all data
     private draw(): void {
         const len = this.record.length;
+        let lastDrawnDate: Date = this.record[0].date ;
+        let currentDate: Date;
+
         for (let i = 0; i < len; i++) {
             const coordinate = this.computeOneCoordinate(i);
+
+            currentDate = this.record[i].date;
+            if ( i === 0 || lastDrawnDate.getMonth() !== currentDate.getMonth() ) {
+                this.drawDateText(coordinate, currentDate);
+                this.drawDateVerticalLine(coordinate);
+                lastDrawnDate = currentDate;
+            }
+
             this.drawPiece(coordinate, this.record[i]);
             this.drawVolume(coordinate, i);
 
-            // record middleX index for retreive stock data
-            let tmpCoor = new Coordinate();
-            tmpCoor.middleX = coordinate.middleX;
-            tmpCoor.startX = coordinate.startX;
-            tmpCoor.endX = coordinate.endX;
-            this.coordinateRecord.push(tmpCoor);
+            this.recordMiddleX(coordinate);
         }
     }
+
+    // return yyyy/MM/dd
+    private getDateText( date: Date ): string {
+        return `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
+    }
+
+    // draw date text
+    private drawDateText(coordinate: Coordinate, date: Date): void {
+        this.context.font = '13px Ariel';
+        this.context.fillStyle = 'black';
+        this.context.fillText( this.getDateText(date), coordinate.startX, this.context.canvas.height );
+    }
+
+    private drawDateVerticalLine(coordinate: Coordinate): void {
+        this.context.beginPath();
+        this.context.moveTo(coordinate.middleX, 0);
+        this.context.lineTo( coordinate.middleX, this.context.canvas.height - this.option.dateTextHeight);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = this.option.priceLineStokeStyle;
+        this.context.stroke();
+    }
+
+    // record middleX index for retreive stock data
+    private recordMiddleX(coordinate: Coordinate): void {
+        let tmp = new Coordinate();
+        tmp.middleX = coordinate.middleX;
+        tmp.startX = coordinate.startX;
+        tmp.endX = coordinate.endX;
+        this.coordinateRecord.push(tmp);
+    }
+
     // draw one piece
     private drawPiece(coordinate: Coordinate, record: StockRecord): void {
         this.context.beginPath();
@@ -291,6 +334,7 @@ class StockViewer {
             this.option.risingColor : this.option.decliningColor;
         this.context.fill();
     }
+
     // compute stock record one coordinate
     private computeOneCoordinate(index: number): Coordinate {
         const record: StockRecord = this.record[index];
@@ -324,11 +368,11 @@ class StockViewer {
             }
         }
 
-        this.volumeHeight = (this.option.volumeHeight - this.option.volumeViewerGap) / highestVolume;
+        this.volumeHeight = (this.option.volumeHeight - this.option.volumeViewerGap - this.option.dateTextHeight) / highestVolume;
     }
     // 計算成交量的X軸
     private computeVolumeY(volume: number): number {
-        return this.context.canvas.height - (volume * this.volumeHeight);
+        return this.context.canvas.height - (volume * this.volumeHeight) - this.option.dateTextHeight;
     }
 
     private drawVolume(coordinate: Coordinate, index: number): void {
@@ -346,7 +390,7 @@ class StockViewer {
 
 
         const Y = this.computeVolumeY(record.volume);
-        const baseY = this.context.canvas.height;
+        const baseY = this.context.canvas.height - this.option.dateTextHeight;
 
         this.context.beginPath();
         this.context.moveTo(coordinate.startX, baseY);
@@ -370,32 +414,35 @@ class StockViewer {
         // record vertial original image
         const vX = hoverCoordinate.startX - 10;
         const vWidth = hoverCoordinate.endX - hoverCoordinate.startX + 20;
-        const lastVerticalImage = this.context.getImageData(vX , 0, vWidth, this.context.canvas.height);
-        this.storedImages['lastVerticalImage'] = new CanvasImage( lastVerticalImage, vX, 0 );
+        const lastVerticalImage = this.context.getImageData(vX, 0, vWidth, this.context.canvas.height);
+        this.storedImages['lastVerticalImage'] = new CanvasImage(lastVerticalImage, vX, 0);
 
         // record horizon original image
         const Y = this.computePriceY(record.closedPrice);
         const hY = Y - 10;
         const hWidth = this.context.canvas.width - this.option.priceTextWidth;
-        const lastHorizontalImage = this.context.getImageData( 0, hY, hWidth, 15 );
+        const lastHorizontalImage = this.context.getImageData(0, hY, hWidth, 15);
         this.storedImages['lastHorizontalImage'] = new CanvasImage(lastHorizontalImage, 0, hY);
 
         // record hover price region image
-        const lastPriceImage = this.context.getImageData( hWidth, Y - 30, this.option.priceTextWidth, 50 );
+        const lastPriceImage = this.context.getImageData(hWidth, Y - 30, this.option.priceTextWidth, 50);
         this.storedImages['lastPriceImage'] = new CanvasImage(lastPriceImage, hWidth, Y - 30);
 
+        // draw hover closed price
         this.context.fillStyle = this.option.hoverLineColor;
         this.context.fillRect(hWidth, Y - 20, this.option.priceTextWidth, 30);
-
-        this.context.font = '15px Arial';
+        this.context.font = '13px Arial';
         this.context.fillStyle = 'white';
-        this.context.fillText( record.closedPrice.toString(), hWidth + 5, Y );
+        this.context.fillText(record.closedPrice.toString(), hWidth + 5, Y);
+
+        this.drawHoverDate(hoverCoordinate, record);
 
         // draw vertical line
         this.context.beginPath();
         // this.context.setLineDash([5, 15]); if want to use dash line
         this.context.moveTo(hoverCoordinate.middleX, 0);
-        this.context.lineTo(hoverCoordinate.middleX, this.context.canvas.height);
+        // +2 because date rect
+        this.context.lineTo(hoverCoordinate.middleX, this.context.canvas.height - this.option.dateTextHeight + 2);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.hoverLineColor;
@@ -410,6 +457,30 @@ class StockViewer {
         this.context.strokeStyle = this.option.hoverLineColor;
         this.context.stroke();
     }
+
+    private drawHoverDate(hoverCoordinate: Coordinate, record: StockRecord): void {
+        let startX = hoverCoordinate.startX ;
+        let width = 75 ;
+        let copyWidth = 80 ;
+
+        if ( hoverCoordinate.startX + width > this.context.canvas.width ) {
+            startX = hoverCoordinate.endX - width;
+        }
+
+        // record hover date image
+        const dY = this.context.canvas.height - this.option.dateTextHeight;
+        const lastDateTextImage = this.context.getImageData(startX, dY, copyWidth, this.option.dateTextHeight );
+        this.storedImages['lastDateTextImage'] = new CanvasImage(lastDateTextImage, startX, dY );
+
+
+        // draw hover date
+        this.context.fillStyle = this.option.hoverLineColor;
+        this.context.fillRect( startX, dY + 2, width, this.option.dateTextHeight );
+        this.context.font = '13px Arial';
+        this.context.fillStyle = 'white';
+        this.context.fillText( this.getDateText( record.date ), startX + 5, this.context.canvas.height - 2);
+    }
+
 
     private hoverLineMoveTo(index: number, showHoverLine: boolean) {
         const hoverRecord = this.record[index];
@@ -468,15 +539,18 @@ class StockViewer {
             const lastVerticalImage = <CanvasImage>this.storedImages['lastVerticalImage'];
             const lastHorizontalImage = <CanvasImage>this.storedImages['lastHorizontalImage'];
             const lastPriceImage = <CanvasImage>this.storedImages['lastPriceImage'];
+            const lastDateTextImage = <CanvasImage>this.storedImages['lastDateTextImage'];
 
             this.context.putImageData(lastVerticalImage.image, lastVerticalImage.x, lastVerticalImage.y);
             this.context.putImageData(lastHorizontalImage.image, lastHorizontalImage.x, lastHorizontalImage.y);
             this.context.putImageData(lastPriceImage.image, lastPriceImage.x, lastPriceImage.y);
+            this.context.putImageData(lastDateTextImage.image, lastDateTextImage.x, lastDateTextImage.y);
 
             this.lastHoverIndex = -1;
             this.storedImages['lastVerticalImage'] = null;
             this.storedImages['lastHorizontalImage'] = null;
             this.storedImages['lastPriceImage'] = null;
+            this.storedImages['lastDateTextImage'] = null;
         }
     }
 

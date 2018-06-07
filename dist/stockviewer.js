@@ -10,10 +10,11 @@ var StockRecord = (function () {
     return StockRecord;
 }());
 var ViewOption = (function () {
-    function ViewOption(volumeHeight, viewerHeight, priceTextWidth, volumeViewerGap, priceLineStokeStyle, priceBorderColor, risingColor, decliningColor, volumeBorderColor, volumeRisingColor, volumeDecliningColor, volumeFlatColor, hoverLineColor, responsive) {
+    function ViewOption(volumeHeight, viewerHeight, priceTextWidth, dateTextHeight, volumeViewerGap, priceLineStokeStyle, priceBorderColor, risingColor, decliningColor, volumeBorderColor, volumeRisingColor, volumeDecliningColor, volumeFlatColor, hoverLineColor, responsive) {
         this.volumeHeight = volumeHeight;
         this.viewerHeight = viewerHeight;
         this.priceTextWidth = priceTextWidth;
+        this.dateTextHeight = dateTextHeight;
         this.volumeViewerGap = volumeViewerGap;
         this.priceLineStokeStyle = priceLineStokeStyle;
         this.priceBorderColor = priceBorderColor;
@@ -55,6 +56,7 @@ var StockViewer = (function () {
             volumeHeight: 0,
             viewerHeight: 0,
             priceTextWidth: 50,
+            dateTextHeight: 20,
             volumeViewerGap: 20,
             priceLineStokeStyle: '#D7D5D5',
             priceBorderColor: 'black',
@@ -70,10 +72,10 @@ var StockViewer = (function () {
         var canvas = document.getElementById(canvasId);
         this.context = canvas.getContext('2d');
         this.afterCanvasMouseMove = new Array();
+        this.option = option || this.defaultOption;
         this.initializeOption();
         this.onCanvasMouseMove();
         this.onCanvasKeyDown();
-        this.option = option || this.defaultOption;
         if (this.option.responsive) {
             this.context.canvas.width = this.context.canvas.parentElement.clientWidth;
             this.context.canvas.style.width = this.context.canvas.parentElement.clientWidth + 'px';
@@ -161,8 +163,8 @@ var StockViewer = (function () {
         this.context.strokeStyle = 'black';
         this.context.stroke();
         this.context.beginPath();
-        this.context.moveTo(0, this.context.canvas.height);
-        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.context.canvas.height);
+        this.context.moveTo(0, this.context.canvas.height - this.option.dateTextHeight);
+        this.context.lineTo(this.context.canvas.width - this.option.priceTextWidth, this.context.canvas.height - this.option.dateTextHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = 'black';
@@ -181,16 +183,44 @@ var StockViewer = (function () {
     };
     StockViewer.prototype.draw = function () {
         var len = this.record.length;
+        var lastDrawnDate = this.record[0].date;
+        var currentDate;
         for (var i = 0; i < len; i++) {
             var coordinate = this.computeOneCoordinate(i);
+            currentDate = this.record[i].date;
+            if (i === 0 || lastDrawnDate.getMonth() !== currentDate.getMonth()) {
+                this.drawDateText(coordinate, currentDate);
+                this.drawDateVerticalLine(coordinate);
+                lastDrawnDate = currentDate;
+            }
             this.drawPiece(coordinate, this.record[i]);
             this.drawVolume(coordinate, i);
-            var tmpCoor = new Coordinate();
-            tmpCoor.middleX = coordinate.middleX;
-            tmpCoor.startX = coordinate.startX;
-            tmpCoor.endX = coordinate.endX;
-            this.coordinateRecord.push(tmpCoor);
+            this.recordMiddleX(coordinate);
         }
+    };
+    StockViewer.prototype.getDateText = function (date) {
+        return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
+    };
+    StockViewer.prototype.drawDateText = function (coordinate, date) {
+        this.context.font = '13px Ariel';
+        this.context.fillStyle = 'black';
+        this.context.fillText(this.getDateText(date), coordinate.startX, this.context.canvas.height);
+    };
+    StockViewer.prototype.drawDateVerticalLine = function (coordinate) {
+        this.context.beginPath();
+        this.context.moveTo(coordinate.middleX, 0);
+        this.context.lineTo(coordinate.middleX, this.context.canvas.height - this.option.dateTextHeight);
+        this.context.closePath();
+        this.context.lineWidth = 0.5;
+        this.context.strokeStyle = this.option.priceLineStokeStyle;
+        this.context.stroke();
+    };
+    StockViewer.prototype.recordMiddleX = function (coordinate) {
+        var tmp = new Coordinate();
+        tmp.middleX = coordinate.middleX;
+        tmp.startX = coordinate.startX;
+        tmp.endX = coordinate.endX;
+        this.coordinateRecord.push(tmp);
     };
     StockViewer.prototype.drawPiece = function (coordinate, record) {
         this.context.beginPath();
@@ -239,10 +269,10 @@ var StockViewer = (function () {
                 highestVolume = this.record[i].volume;
             }
         }
-        this.volumeHeight = (this.option.volumeHeight - this.option.volumeViewerGap) / highestVolume;
+        this.volumeHeight = (this.option.volumeHeight - this.option.volumeViewerGap - this.option.dateTextHeight) / highestVolume;
     };
     StockViewer.prototype.computeVolumeY = function (volume) {
-        return this.context.canvas.height - (volume * this.volumeHeight);
+        return this.context.canvas.height - (volume * this.volumeHeight) - this.option.dateTextHeight;
     };
     StockViewer.prototype.drawVolume = function (coordinate, index) {
         var record = this.record[index];
@@ -257,7 +287,7 @@ var StockViewer = (function () {
             }
         }
         var Y = this.computeVolumeY(record.volume);
-        var baseY = this.context.canvas.height;
+        var baseY = this.context.canvas.height - this.option.dateTextHeight;
         this.context.beginPath();
         this.context.moveTo(coordinate.startX, baseY);
         this.context.lineTo(coordinate.startX, Y);
@@ -283,12 +313,13 @@ var StockViewer = (function () {
         this.storedImages['lastPriceImage'] = new CanvasImage(lastPriceImage, hWidth, Y - 30);
         this.context.fillStyle = this.option.hoverLineColor;
         this.context.fillRect(hWidth, Y - 20, this.option.priceTextWidth, 30);
-        this.context.font = '15px Arial';
+        this.context.font = '13px Arial';
         this.context.fillStyle = 'white';
         this.context.fillText(record.closedPrice.toString(), hWidth + 5, Y);
+        this.drawHoverDate(hoverCoordinate, record);
         this.context.beginPath();
         this.context.moveTo(hoverCoordinate.middleX, 0);
-        this.context.lineTo(hoverCoordinate.middleX, this.context.canvas.height);
+        this.context.lineTo(hoverCoordinate.middleX, this.context.canvas.height - this.option.dateTextHeight + 2);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.hoverLineColor;
@@ -300,6 +331,22 @@ var StockViewer = (function () {
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.hoverLineColor;
         this.context.stroke();
+    };
+    StockViewer.prototype.drawHoverDate = function (hoverCoordinate, record) {
+        var startX = hoverCoordinate.startX;
+        var width = 75;
+        var copyWidth = 80;
+        if (hoverCoordinate.startX + width > this.context.canvas.width) {
+            startX = hoverCoordinate.endX - width;
+        }
+        var dY = this.context.canvas.height - this.option.dateTextHeight;
+        var lastDateTextImage = this.context.getImageData(startX, dY, copyWidth, this.option.dateTextHeight);
+        this.storedImages['lastDateTextImage'] = new CanvasImage(lastDateTextImage, startX, dY);
+        this.context.fillStyle = this.option.hoverLineColor;
+        this.context.fillRect(startX, dY + 2, width, this.option.dateTextHeight);
+        this.context.font = '13px Arial';
+        this.context.fillStyle = 'white';
+        this.context.fillText(this.getDateText(record.date), startX + 5, this.context.canvas.height - 2);
     };
     StockViewer.prototype.hoverLineMoveTo = function (index, showHoverLine) {
         var hoverRecord = this.record[index];
@@ -342,13 +389,16 @@ var StockViewer = (function () {
             var lastVerticalImage = this.storedImages['lastVerticalImage'];
             var lastHorizontalImage = this.storedImages['lastHorizontalImage'];
             var lastPriceImage = this.storedImages['lastPriceImage'];
+            var lastDateTextImage = this.storedImages['lastDateTextImage'];
             this.context.putImageData(lastVerticalImage.image, lastVerticalImage.x, lastVerticalImage.y);
             this.context.putImageData(lastHorizontalImage.image, lastHorizontalImage.x, lastHorizontalImage.y);
             this.context.putImageData(lastPriceImage.image, lastPriceImage.x, lastPriceImage.y);
+            this.context.putImageData(lastDateTextImage.image, lastDateTextImage.x, lastDateTextImage.y);
             this.lastHoverIndex = -1;
             this.storedImages['lastVerticalImage'] = null;
             this.storedImages['lastHorizontalImage'] = null;
             this.storedImages['lastPriceImage'] = null;
+            this.storedImages['lastDateTextImage'] = null;
         }
     };
     StockViewer.prototype.onCanvasKeyDown = function () {
