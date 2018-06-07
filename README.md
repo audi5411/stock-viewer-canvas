@@ -11,7 +11,7 @@ source:
 
 example:
   + `index.html`
-  + `example/after-hover.html`
+  + `example/*.html`
 
 ## Building
 
