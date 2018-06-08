@@ -20,3 +20,5 @@ example:
 3. `tsc`
 
 ## License
+
+available under the [MIT license](http://opensource.org/licenses/MIT).
