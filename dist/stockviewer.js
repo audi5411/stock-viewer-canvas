@@ -34,11 +34,33 @@ var StyleOption = (function () {
     }
     return StyleOption;
 }());
+var AdvancedOption = (function () {
+    function AdvancedOption() {
+        this.SMADay = [];
+        this.SMAColor = [];
+    }
+    AdvancedOption.prototype.addSMA = function (day, color) {
+        var index = this.SMADay.indexOf(day);
+        if (index < 0) {
+            this.SMADay.push(day);
+            this.SMAColor.push(color);
+        }
+    };
+    AdvancedOption.prototype.removeSMA = function (day) {
+        var index = this.SMADay.indexOf(day);
+        if (index > -1) {
+            this.SMADay.splice(index, 1);
+            this.SMAColor.splice(index, 1);
+        }
+    };
+    return AdvancedOption;
+}());
 var ViewOption = (function () {
     function ViewOption() {
         this.layout = new LayoutOption();
         this.style = new StyleOption();
         this.responsive = true;
+        this.advance = new AdvancedOption();
     }
     return ViewOption;
 }());
@@ -55,6 +77,42 @@ var CanvasImage = (function () {
     }
     return CanvasImage;
 }());
+var SMAComputer = (function () {
+    function SMAComputer() {
+    }
+    SMAComputer.prototype.compute = function (data, day) {
+        var tmp = [];
+        var SMA = [];
+        var len = data.length;
+        for (var i = 0; i < day && i < len; i++) {
+            tmp.push(data[i]);
+        }
+        SMA.push(this.computeOne(tmp, day));
+        for (var i = day; i < len; i++) {
+            tmp = tmp.slice(1, data.length);
+            tmp.push(data[i]);
+            SMA.push(this.computeOne(tmp, day));
+        }
+        return SMA;
+    };
+    SMAComputer.prototype.getIndices = function (data, day) {
+        var len = data.length;
+        var indices = [];
+        for (var i = 0; i + day < len; i++) {
+            indices.push(day + i);
+        }
+        return indices;
+    };
+    SMAComputer.prototype.computeOne = function (data, day) {
+        var total = 0;
+        var len = data.length;
+        for (var i = 0; i < len; i++) {
+            total += data[i];
+        }
+        return (total / day);
+    };
+    return SMAComputer;
+}());
 var Dictionary = (function () {
     function Dictionary() {
     }
@@ -68,6 +126,7 @@ var StockViewer = (function () {
         var canvas = document.getElementById(this.canvasId);
         this.context = canvas.getContext('2d');
         this.afterCanvasMouseMove = new Array();
+        this.SMAComputer = new SMAComputer();
         this.option = option || this.defaultOption();
         this.onCanvasMouseMove();
         this.onCanvasKeyDown();
@@ -99,6 +158,7 @@ var StockViewer = (function () {
         this.drawPriceLine();
         this.drawBaseLine();
         this.draw();
+        this.drawAdvanceOption();
     };
     StockViewer.prototype.defaultOption = function () {
         var option = new ViewOption();
@@ -418,6 +478,42 @@ var StockViewer = (function () {
             if (acceptedCode) {
                 this.hoverLineMoveTo(index, true);
             }
+        }
+    };
+    StockViewer.prototype.drawLine = function (data, indices, color) {
+        var len = data.length;
+        this.context.beginPath();
+        for (var i = 0; i < len; i++) {
+            var Y = this.computePriceY(data[i]);
+            var X = this.computePriceX(indices[i]);
+            var middleX = (X.start + X.end) * 0.5;
+            if (i === 0) {
+                this.context.moveTo(middleX, Y);
+            }
+            else {
+                this.context.lineTo(middleX, Y);
+            }
+        }
+        this.context.strokeStyle = color;
+        this.context.lineWidth = 0.5;
+        this.context.stroke();
+    };
+    StockViewer.prototype.drawAdvanceOption = function () {
+        this.drawSMA();
+    };
+    StockViewer.prototype.drawSMA = function () {
+        var len = this.option.advance.SMADay.length;
+        var len1 = this.record.length;
+        var data = [];
+        for (var i = 0; i < len1; i++) {
+            data.push(this.record[i].closedPrice);
+        }
+        for (var i = 0; i < len; i++) {
+            var day = this.option.advance.SMADay[i];
+            var color = this.option.advance.SMAColor[i];
+            var dataOfSMA = this.SMAComputer.compute(data, day);
+            var indicesOfSMA = this.SMAComputer.getIndices(data, day);
+            this.drawLine(dataOfSMA, indicesOfSMA, color);
         }
     };
     return StockViewer;

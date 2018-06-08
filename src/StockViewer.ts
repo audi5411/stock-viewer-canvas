@@ -1,13 +1,13 @@
-class StockRecord {
+ class StockRecord {
 
     public coordinate: Coordinate;
 
-    constructor(public date: Date,
+    constructor( public date: Date,
         public highestPrice: number,
         public lowestPrice: number,
         public openedPrice: number,
         public closedPrice: number,
-        public volume: number) {
+        public volume: number ) {
     }
 }
 
@@ -28,7 +28,7 @@ class LayoutOption {
 
 class StyleOption {
     // background line color
-    public backLineColor: string;
+    public backLineColor: string ;
     public backgroundColor: string;
     public tagColor: string;
     public baseLineColor: string;
@@ -51,7 +51,7 @@ class StyleOption {
         this.baseLineColor = 'black';
         this.tagColor = 'black';
         this.backLineColor = '#D7D5D5';
-        this.backgroundColor = 'white';
+        this.backgroundColor = 'white' ;
         this.pieceBorderColor = 'black';
         this.risingColor = 'red';
         this.decliningColor = 'green';
@@ -63,21 +63,51 @@ class StyleOption {
     }
 }
 
+class AdvancedOption {
+    public readonly SMADay: number[];
+    public readonly SMAColor: string[];
 
-class ViewOption {
+    constructor() {
+        this.SMADay = [];
+        this.SMAColor = [];
+    }
+
+    public addSMA( day: number, color: string ) {
+        const index = this.SMADay.indexOf(day) ;
+
+        if ( index < 0 ) {
+            this.SMADay.push(day);
+            this.SMAColor.push(color);
+        }
+    }
+
+    public removeSMA( day: number ) {
+        const index = this.SMADay.indexOf(day);
+
+        if ( index > -1 ) {
+            this.SMADay.splice(index, 1);
+            this.SMAColor.splice(index, 1);
+        }
+    }
+}
+
+
+ class ViewOption {
     public layout: LayoutOption;
     public style: StyleOption;
     public responsive: boolean;
+    public advance: AdvancedOption;
 
     constructor() {
         this.layout = new LayoutOption();
         this.style = new StyleOption();
         this.responsive = true;
+        this.advance = new AdvancedOption();
     }
 
 }
 
-class Coordinate {
+ class Coordinate {
     public startX: number;
     public endX: number;
     public startY: number;
@@ -90,7 +120,7 @@ class Coordinate {
     }
 }
 
-class CanvasImage {
+ class CanvasImage {
     constructor(public image: ImageData,
         public x: number,
         public y: number) {
@@ -98,12 +128,61 @@ class CanvasImage {
 }
 
 
+ class SMAComputer {
+
+    constructor() {
+    }
+
+    public compute(data: number[], day: number): number[] {
+        let tmp: number[] = [] ;
+        let SMA: number[] = [] ;
+        const len = data.length;
+
+        for ( let i = 0 ; i < day && i < len ; i++ ) {
+            tmp.push( data[i] );
+        }
+
+        SMA.push( this.computeOne(tmp, day) );
+
+        for ( let i = day ; i < len ; i++ ) {
+            tmp = tmp.slice(1, data.length);
+            tmp.push( data[i] );
+            SMA.push( this.computeOne(tmp, day) );
+        }
+
+        return SMA;
+    }
+
+    public getIndices(data: number[], day: number): number[] {
+        const len = data.length;
+        let indices: number[] = [];
+
+        for ( let i = 0 ; i + day < len ; i++ ) {
+            indices.push(day + i);
+        }
+
+        return indices;
+    }
+
+
+    private computeOne( data: number[], day: number ): number {
+        let total = 0;
+        const len = data.length ;
+
+        for ( let i = 0 ; i < len ; i++ ) {
+            total += data[i];
+        }
+
+        return (total / day);
+    }
+
+}
 
 class Dictionary {
     [index: string]: any;
 }
 
-class StockViewer {
+ class StockViewer {
 
     private context: CanvasRenderingContext2D;
     private pieceWidth: number;
@@ -118,6 +197,8 @@ class StockViewer {
     private storedImages: Dictionary;
     private lastHoverIndex: number;
 
+    private SMAComputer: SMAComputer;
+
     constructor(private canvasId: string,
         private record: StockRecord[],
         public option?: ViewOption
@@ -128,6 +209,8 @@ class StockViewer {
 
         // after mousemove hook function
         this.afterCanvasMouseMove = new Array<(data: StockRecord) => void>();
+        this.SMAComputer = new SMAComputer();
+
         this.option = option || this.defaultOption();
 
         this.onCanvasMouseMove();
@@ -170,6 +253,7 @@ class StockViewer {
         this.drawPriceLine();
         this.drawBaseLine();
         this.draw();
+        this.drawAdvanceOption();
     }
 
     private defaultOption(): ViewOption {
@@ -280,7 +364,7 @@ class StockViewer {
     }
     // draw all data
     private draw(): void {
-        const len = this.record.length;
+        let len = this.record.length;
         let lastDrawnDate: Date = this.record[0].date;
         let currentDate: Date;
 
@@ -603,6 +687,52 @@ class StockViewer {
             if (acceptedCode) {
                 this.hoverLineMoveTo(index, true);
             }
+        }
+    }
+
+    // draw line for data on the viewer
+    public drawLine( data: number[], indices: number[], color: string ) {
+        const len = data.length;
+        this.context.beginPath();
+
+        for ( let i = 0 ; i < len ; i++ ) {
+            const Y = this.computePriceY(data[i]);
+            const X = this.computePriceX(indices[i]);
+            const middleX = (X.start + X.end) * 0.5;
+
+            if ( i === 0 ) {
+                this.context.moveTo(middleX, Y);
+            } else {
+                this.context.lineTo(middleX, Y);
+            }
+        }
+
+        this.context.strokeStyle = color;
+        this.context.lineWidth = 0.5;
+        this.context.stroke();
+    }
+
+    private drawAdvanceOption(): void {
+        this.drawSMA();
+    }
+
+    private drawSMA(): void {
+        const len = this.option.advance.SMADay.length;
+        const len1 = this.record.length;
+        let data: number[] = [];
+
+        for ( let i = 0 ; i < len1 ; i++ ) {
+            data.push(this.record[i].closedPrice);
+        }
+
+        for ( let i = 0 ; i < len ; i++ ) {
+            const day = this.option.advance.SMADay[i];
+            const color = this.option.advance.SMAColor[i];
+
+            const dataOfSMA = this.SMAComputer.compute( data, day );
+            const indicesOfSMA = this.SMAComputer.getIndices(data, day );
+
+            this.drawLine( dataOfSMA, indicesOfSMA, color ) ;
         }
     }
 }
