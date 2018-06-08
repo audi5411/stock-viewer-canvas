@@ -19,6 +19,7 @@ var LayoutOption = (function () {
 }());
 var StyleOption = (function () {
     function StyleOption() {
+        this.baseLineColor = 'black';
         this.tagColor = 'black';
         this.backLineColor = '#D7D5D5';
         this.backgroundColor = 'white';
@@ -158,14 +159,14 @@ var StockViewer = (function () {
         this.context.lineTo(this.context.canvas.width - this.option.layout.priceTagWidth, this.option.layout.viewerHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
-        this.context.strokeStyle = 'black';
+        this.context.strokeStyle = this.option.style.baseLineColor;
         this.context.stroke();
         this.context.beginPath();
         this.context.moveTo(0, this.context.canvas.height - this.option.layout.dateTagHeight);
         this.context.lineTo(this.context.canvas.width - this.option.layout.priceTagWidth, this.context.canvas.height - this.option.layout.dateTagHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
-        this.context.strokeStyle = 'black';
+        this.context.strokeStyle = this.option.style.baseLineColor;
         this.context.stroke();
     };
     StockViewer.prototype.computePriceY = function (price) {
@@ -202,7 +203,7 @@ var StockViewer = (function () {
     StockViewer.prototype.drawDateText = function (coordinate, date) {
         this.context.font = '13px Ariel';
         this.context.fillStyle = this.option.style.tagColor;
-        this.context.fillText(this.getDateText(date), coordinate.startX, this.context.canvas.height);
+        this.context.fillText(this.getDateText(date), coordinate.startX, this.context.canvas.height - 2);
     };
     StockViewer.prototype.drawDateVerticalLine = function (coordinate) {
         this.context.beginPath();
@@ -310,7 +311,7 @@ var StockViewer = (function () {
         this.context.font = '13px Arial';
         this.context.fillStyle = 'white';
         this.context.fillText(record.closedPrice.toString(), hWidth + 5, Y);
-        this.drawHoverDate(hoverCoordinate, record);
+        this.drawHoverDate(record);
         this.context.beginPath();
         this.context.moveTo(hoverCoordinate.middleX, 0);
         this.context.lineTo(hoverCoordinate.middleX, this.context.canvas.height - this.option.layout.dateTagHeight + 2);
@@ -326,7 +327,8 @@ var StockViewer = (function () {
         this.context.strokeStyle = this.option.style.hoverLineColor;
         this.context.stroke();
     };
-    StockViewer.prototype.drawHoverDate = function (hoverCoordinate, record) {
+    StockViewer.prototype.drawHoverDate = function (record) {
+        var hoverCoordinate = record.coordinate;
         var startX = hoverCoordinate.startX;
         var width = 75;
         var copyWidth = 80;

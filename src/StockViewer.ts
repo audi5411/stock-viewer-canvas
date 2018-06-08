@@ -2,12 +2,12 @@ class StockRecord {
 
     public coordinate: Coordinate;
 
-    constructor( public date: Date,
+    constructor(public date: Date,
         public highestPrice: number,
         public lowestPrice: number,
         public openedPrice: number,
         public closedPrice: number,
-        public volume: number ) {
+        public volume: number) {
     }
 }
 
@@ -28,9 +28,10 @@ class LayoutOption {
 
 class StyleOption {
     // background line color
-    public backLineColor: string ;
+    public backLineColor: string;
     public backgroundColor: string;
     public tagColor: string;
+    public baseLineColor: string;
 
     // chart piece styles
     public pieceBorderColor: string;
@@ -47,9 +48,10 @@ class StyleOption {
     public hoverLineColor: string;
 
     constructor() {
+        this.baseLineColor = 'black';
         this.tagColor = 'black';
         this.backLineColor = '#D7D5D5';
-        this.backgroundColor = 'white' ;
+        this.backgroundColor = 'white';
         this.pieceBorderColor = 'black';
         this.risingColor = 'red';
         this.decliningColor = 'green';
@@ -94,6 +96,8 @@ class CanvasImage {
         public y: number) {
     }
 }
+
+
 
 class Dictionary {
     [index: string]: any;
@@ -248,7 +252,7 @@ class StockViewer {
         this.context.lineTo(this.context.canvas.width - this.option.layout.priceTagWidth, this.option.layout.viewerHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
-        this.context.strokeStyle = 'black';
+        this.context.strokeStyle = this.option.style.baseLineColor;
         this.context.stroke();
 
         // draw volume chart base line
@@ -258,7 +262,7 @@ class StockViewer {
             this.context.canvas.height - this.option.layout.dateTagHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
-        this.context.strokeStyle = 'black';
+        this.context.strokeStyle = this.option.style.baseLineColor;
         this.context.stroke();
     }
     // 計算價格的Y軸數值
@@ -305,7 +309,7 @@ class StockViewer {
     private drawDateText(coordinate: Coordinate, date: Date): void {
         this.context.font = '13px Ariel';
         this.context.fillStyle = this.option.style.tagColor;
-        this.context.fillText(this.getDateText(date), coordinate.startX, this.context.canvas.height);
+        this.context.fillText(this.getDateText(date), coordinate.startX, this.context.canvas.height - 2);
     }
 
     private drawDateVerticalLine(coordinate: Coordinate): void {
@@ -456,7 +460,7 @@ class StockViewer {
         this.context.fillStyle = 'white';
         this.context.fillText(record.closedPrice.toString(), hWidth + 5, Y);
 
-        this.drawHoverDate(hoverCoordinate, record);
+        this.drawHoverDate(record);
 
         // draw vertical line
         this.context.beginPath();
@@ -479,7 +483,8 @@ class StockViewer {
         this.context.stroke();
     }
 
-    private drawHoverDate(hoverCoordinate: Coordinate, record: StockRecord): void {
+    private drawHoverDate(record: StockRecord): void {
+        const hoverCoordinate = record.coordinate;
         let startX = hoverCoordinate.startX;
         let width = 75;
         let copyWidth = 80;
