@@ -1,188 +1,9 @@
- class StockRecord {
-
-    public coordinate: Coordinate;
-
-    constructor( public date: Date,
-        public highestPrice: number,
-        public lowestPrice: number,
-        public openedPrice: number,
-        public closedPrice: number,
-        public volume: number ) {
-    }
-}
-
-class LayoutOption {
-    public volumeHeight: number;
-    public viewerHeight: number;
-    public priceTagWidth: number;
-    public dateTagHeight: number;
-    public gapBetweenVolumeAndViewer: number;
-
-    constructor() {
-        this.priceTagWidth = 50;
-        this.dateTagHeight = 20;
-        this.gapBetweenVolumeAndViewer = 20;
-    }
-}
-
-
-class StyleOption {
-    // background line color
-    public backLineColor: string ;
-    public backgroundColor: string;
-    public tagColor: string;
-    public baseLineColor: string;
-
-    // chart piece styles
-    public pieceBorderColor: string;
-    public risingColor: string;
-    public decliningColor: string;
-
-    // volume viewer style
-    public volumeBorderColor: string;
-    public volumeRisingColor: string;
-    public volumeDecliningColor: string;
-    public volumeFlatColor: string;
-
-    // hover style
-    public hoverLineColor: string;
-
-    constructor() {
-        this.baseLineColor = 'black';
-        this.tagColor = 'black';
-        this.backLineColor = '#D7D5D5';
-        this.backgroundColor = 'white' ;
-        this.pieceBorderColor = 'black';
-        this.risingColor = 'red';
-        this.decliningColor = 'green';
-        this.volumeBorderColor = 'black';
-        this.volumeRisingColor = 'red';
-        this.volumeDecliningColor = 'green';
-        this.volumeFlatColor = 'gray';
-        this.hoverLineColor = 'orange';
-    }
-}
-
-class AdvancedOption {
-    public readonly SMADay: number[];
-    public readonly SMAColor: string[];
-
-    constructor() {
-        this.SMADay = [];
-        this.SMAColor = [];
-    }
-
-    public addSMA( day: number, color: string ) {
-        const index = this.SMADay.indexOf(day) ;
-
-        if ( index < 0 ) {
-            this.SMADay.push(day);
-            this.SMAColor.push(color);
-        }
-    }
-
-    public removeSMA( day: number ) {
-        const index = this.SMADay.indexOf(day);
-
-        if ( index > -1 ) {
-            this.SMADay.splice(index, 1);
-            this.SMAColor.splice(index, 1);
-        }
-    }
-}
-
-
- class ViewOption {
-    public layout: LayoutOption;
-    public style: StyleOption;
-    public responsive: boolean;
-    public advance: AdvancedOption;
-
-    constructor() {
-        this.layout = new LayoutOption();
-        this.style = new StyleOption();
-        this.responsive = true;
-        this.advance = new AdvancedOption();
-    }
-
-}
-
- class Coordinate {
-    public startX: number;
-    public endX: number;
-    public startY: number;
-    public endY: number;
-    public highestY: number;
-    public lowwestY: number;
-    public middleX: number;
-
-    constructor() {
-    }
-}
-
- class CanvasImage {
-    constructor(public image: ImageData,
-        public x: number,
-        public y: number) {
-    }
-}
-
-
- class SMAComputer {
-
-    constructor() {
-    }
-
-    public compute(data: number[], day: number): number[] {
-        let tmp: number[] = [] ;
-        let SMA: number[] = [] ;
-        const len = data.length;
-
-        for ( let i = 0 ; i < day && i < len ; i++ ) {
-            tmp.push( data[i] );
-        }
-
-        SMA.push( this.computeOne(tmp, day) );
-
-        for ( let i = day ; i < len ; i++ ) {
-            tmp = tmp.slice(1, data.length);
-            tmp.push( data[i] );
-            SMA.push( this.computeOne(tmp, day) );
-        }
-
-        return SMA;
-    }
-
-    public getIndices(data: number[], day: number): number[] {
-        const len = data.length;
-        let indices: number[] = [];
-
-        for ( let i = 0 ; i + day < len ; i++ ) {
-            indices.push(day + i);
-        }
-
-        return indices;
-    }
-
-
-    private computeOne( data: number[], day: number ): number {
-        let total = 0;
-        const len = data.length ;
-
-        for ( let i = 0 ; i < len ; i++ ) {
-            total += data[i];
-        }
-
-        return (total / day);
-    }
-
-}
 
 class Dictionary {
     [index: string]: any;
 }
 
- class StockViewer {
+class StockViewer {
 
     private context: CanvasRenderingContext2D;
     private pieceWidth: number;
@@ -340,21 +161,22 @@ class Dictionary {
         this.context.stroke();
 
         // draw volume chart base line
+        const volumeBaseLineHeight = (this.option.layout.viewerHeight + this.option.layout.volumeHeight);
         this.context.beginPath();
-        this.context.moveTo(0, this.context.canvas.height - this.option.layout.dateTagHeight);
+        this.context.moveTo(0, volumeBaseLineHeight - this.option.layout.dateTagHeight);
         this.context.lineTo(this.context.canvas.width - this.option.layout.priceTagWidth,
-            this.context.canvas.height - this.option.layout.dateTagHeight);
+            volumeBaseLineHeight - this.option.layout.dateTagHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.style.baseLineColor;
         this.context.stroke();
     }
     // 計算價格的Y軸數值
-    private computePriceY(price: number): number {
+    public computePriceY(price: number): number {
         return this.option.layout.viewerHeight - (((price - this.lowestPrice) / 0.05) * this.pieceHeight);
     }
     // 計算X的開始和結束位置
-    private computePriceX(index: number): any {
+    public computeIndexX(index: number): any {
         const startX = index * (this.pieceWidth + this.gapWidth);
         const endX = (index + 1) * (this.pieceWidth + this.gapWidth) - this.gapWidth;
         return {
@@ -391,15 +213,17 @@ class Dictionary {
 
     // draw date text
     private drawDateText(coordinate: Coordinate, date: Date): void {
+        const textHeight = this.option.layout.volumeHeight + this.option.layout.viewerHeight;
         this.context.font = '13px Ariel';
         this.context.fillStyle = this.option.style.tagColor;
-        this.context.fillText(this.getDateText(date), coordinate.startX, this.context.canvas.height - 2);
+        this.context.fillText(this.getDateText(date), coordinate.startX, textHeight - 2);
     }
 
     private drawDateVerticalLine(coordinate: Coordinate): void {
+        const height = this.option.layout.viewerHeight + this.option.layout.volumeHeight;
         this.context.beginPath();
         this.context.moveTo(coordinate.middleX, 0);
-        this.context.lineTo(coordinate.middleX, this.context.canvas.height - this.option.layout.dateTagHeight);
+        this.context.lineTo(coordinate.middleX, height - this.option.layout.dateTagHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.style.backLineColor;
@@ -448,7 +272,7 @@ class Dictionary {
         let coordinate: Coordinate = new Coordinate();
 
         // compute start and end X that is accroding to index
-        const X = this.computePriceX(index);
+        const X = this.computeIndexX(index);
         coordinate.startX = X.start;
         coordinate.endX = X.end;
         coordinate.middleX = (X.start + X.end) * 0.5;
@@ -479,9 +303,10 @@ class Dictionary {
             this.option.layout.gapBetweenVolumeAndViewer -
             this.option.layout.dateTagHeight) / highestVolume;
     }
-    // 計算成交量的X軸
-    private computeVolumeY(volume: number): number {
-        return this.context.canvas.height - (volume * this.volumeHeight) - this.option.layout.dateTagHeight;
+    // 計算成交量的Y軸
+    public computeVolumeY(volume: number): number {
+        const height = this.option.layout.volumeHeight + this.option.layout.viewerHeight;
+        return height - (volume * this.volumeHeight) - this.option.layout.dateTagHeight;
     }
 
     private drawVolume(coordinate: Coordinate, index: number): void {
@@ -497,9 +322,9 @@ class Dictionary {
             }
         }
 
-
+        const height = this.option.layout.viewerHeight + this.option.layout.volumeHeight;
         const Y = this.computeVolumeY(record.volume);
-        const baseY = this.context.canvas.height - this.option.layout.dateTagHeight;
+        const baseY = height - this.option.layout.dateTagHeight;
 
         this.context.beginPath();
         this.context.moveTo(coordinate.startX, baseY);
@@ -578,7 +403,8 @@ class Dictionary {
         }
 
         // record hover date image
-        const dY = this.context.canvas.height - this.option.layout.dateTagHeight;
+        const height = this.option.layout.volumeHeight + this.option.layout.viewerHeight;
+        const dY = height - this.option.layout.dateTagHeight;
         const lastDateTextImage = this.context.getImageData(startX, dY, copyWidth, this.option.layout.dateTagHeight);
         this.storedImages['lastDateTextImage'] = new CanvasImage(lastDateTextImage, startX, dY);
 
@@ -588,7 +414,7 @@ class Dictionary {
         this.context.fillRect(startX, dY + 2, width, this.option.layout.dateTagHeight);
         this.context.font = '13px Arial';
         this.context.fillStyle = 'white';
-        this.context.fillText(this.getDateText(record.date), startX + 5, this.context.canvas.height - 2);
+        this.context.fillText(this.getDateText(record.date), startX + 5, height - 2);
     }
 
 
@@ -697,7 +523,7 @@ class Dictionary {
 
         for ( let i = 0 ; i < len ; i++ ) {
             const Y = this.computePriceY(data[i]);
-            const X = this.computePriceX(indices[i]);
+            const X = this.computeIndexX(indices[i]);
             const middleX = (X.start + X.end) * 0.5;
 
             if ( i === 0 ) {

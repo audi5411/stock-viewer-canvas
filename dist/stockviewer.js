@@ -1,3 +1,39 @@
+var SMAComputer = (function () {
+    function SMAComputer() {
+    }
+    SMAComputer.prototype.compute = function (data, day) {
+        var tmp = [];
+        var SMA = [];
+        var len = data.length;
+        for (var i = 0; i < day && i < len; i++) {
+            tmp.push(data[i]);
+        }
+        SMA.push(this.computeOne(tmp, day));
+        for (var i = day; i < len; i++) {
+            tmp = tmp.slice(1, data.length);
+            tmp.push(data[i]);
+            SMA.push(this.computeOne(tmp, day));
+        }
+        return SMA;
+    };
+    SMAComputer.prototype.getIndices = function (data, day) {
+        var len = data.length;
+        var indices = [];
+        for (var i = 0; i + day < len; i++) {
+            indices.push(day + i);
+        }
+        return indices;
+    };
+    SMAComputer.prototype.computeOne = function (data, day) {
+        var total = 0;
+        var len = data.length;
+        for (var i = 0; i < len; i++) {
+            total += data[i];
+        }
+        return (total / day);
+    };
+    return SMAComputer;
+}());
 var StockRecord = (function () {
     function StockRecord(date, highestPrice, lowestPrice, openedPrice, closedPrice, volume) {
         this.date = date;
@@ -76,42 +112,6 @@ var CanvasImage = (function () {
         this.y = y;
     }
     return CanvasImage;
-}());
-var SMAComputer = (function () {
-    function SMAComputer() {
-    }
-    SMAComputer.prototype.compute = function (data, day) {
-        var tmp = [];
-        var SMA = [];
-        var len = data.length;
-        for (var i = 0; i < day && i < len; i++) {
-            tmp.push(data[i]);
-        }
-        SMA.push(this.computeOne(tmp, day));
-        for (var i = day; i < len; i++) {
-            tmp = tmp.slice(1, data.length);
-            tmp.push(data[i]);
-            SMA.push(this.computeOne(tmp, day));
-        }
-        return SMA;
-    };
-    SMAComputer.prototype.getIndices = function (data, day) {
-        var len = data.length;
-        var indices = [];
-        for (var i = 0; i + day < len; i++) {
-            indices.push(day + i);
-        }
-        return indices;
-    };
-    SMAComputer.prototype.computeOne = function (data, day) {
-        var total = 0;
-        var len = data.length;
-        for (var i = 0; i < len; i++) {
-            total += data[i];
-        }
-        return (total / day);
-    };
-    return SMAComputer;
 }());
 var Dictionary = (function () {
     function Dictionary() {
@@ -221,9 +221,10 @@ var StockViewer = (function () {
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.style.baseLineColor;
         this.context.stroke();
+        var volumeBaseLineHeight = (this.option.layout.viewerHeight + this.option.layout.volumeHeight);
         this.context.beginPath();
-        this.context.moveTo(0, this.context.canvas.height - this.option.layout.dateTagHeight);
-        this.context.lineTo(this.context.canvas.width - this.option.layout.priceTagWidth, this.context.canvas.height - this.option.layout.dateTagHeight);
+        this.context.moveTo(0, volumeBaseLineHeight - this.option.layout.dateTagHeight);
+        this.context.lineTo(this.context.canvas.width - this.option.layout.priceTagWidth, volumeBaseLineHeight - this.option.layout.dateTagHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.style.baseLineColor;
@@ -232,7 +233,7 @@ var StockViewer = (function () {
     StockViewer.prototype.computePriceY = function (price) {
         return this.option.layout.viewerHeight - (((price - this.lowestPrice) / 0.05) * this.pieceHeight);
     };
-    StockViewer.prototype.computePriceX = function (index) {
+    StockViewer.prototype.computeIndexX = function (index) {
         var startX = index * (this.pieceWidth + this.gapWidth);
         var endX = (index + 1) * (this.pieceWidth + this.gapWidth) - this.gapWidth;
         return {
@@ -261,14 +262,16 @@ var StockViewer = (function () {
         return date.getFullYear() + "/" + (date.getMonth() + 1) + "/" + date.getDate();
     };
     StockViewer.prototype.drawDateText = function (coordinate, date) {
+        var textHeight = this.option.layout.volumeHeight + this.option.layout.viewerHeight;
         this.context.font = '13px Ariel';
         this.context.fillStyle = this.option.style.tagColor;
-        this.context.fillText(this.getDateText(date), coordinate.startX, this.context.canvas.height - 2);
+        this.context.fillText(this.getDateText(date), coordinate.startX, textHeight - 2);
     };
     StockViewer.prototype.drawDateVerticalLine = function (coordinate) {
+        var height = this.option.layout.viewerHeight + this.option.layout.volumeHeight;
         this.context.beginPath();
         this.context.moveTo(coordinate.middleX, 0);
-        this.context.lineTo(coordinate.middleX, this.context.canvas.height - this.option.layout.dateTagHeight);
+        this.context.lineTo(coordinate.middleX, height - this.option.layout.dateTagHeight);
         this.context.closePath();
         this.context.lineWidth = 0.5;
         this.context.strokeStyle = this.option.style.backLineColor;
@@ -297,7 +300,7 @@ var StockViewer = (function () {
     StockViewer.prototype.computeOneCoordinate = function (index) {
         var record = this.record[index];
         var coordinate = new Coordinate();
-        var X = this.computePriceX(index);
+        var X = this.computeIndexX(index);
         coordinate.startX = X.start;
         coordinate.endX = X.end;
         coordinate.middleX = (X.start + X.end) * 0.5;
@@ -326,7 +329,8 @@ var StockViewer = (function () {
             this.option.layout.dateTagHeight) / highestVolume;
     };
     StockViewer.prototype.computeVolumeY = function (volume) {
-        return this.context.canvas.height - (volume * this.volumeHeight) - this.option.layout.dateTagHeight;
+        var height = this.option.layout.volumeHeight + this.option.layout.viewerHeight;
+        return height - (volume * this.volumeHeight) - this.option.layout.dateTagHeight;
     };
     StockViewer.prototype.drawVolume = function (coordinate, index) {
         var record = this.record[index];
@@ -340,8 +344,9 @@ var StockViewer = (function () {
                 fillStyle = this.option.style.volumeDecliningColor;
             }
         }
+        var height = this.option.layout.viewerHeight + this.option.layout.volumeHeight;
         var Y = this.computeVolumeY(record.volume);
-        var baseY = this.context.canvas.height - this.option.layout.dateTagHeight;
+        var baseY = height - this.option.layout.dateTagHeight;
         this.context.beginPath();
         this.context.moveTo(coordinate.startX, baseY);
         this.context.lineTo(coordinate.startX, Y);
@@ -395,14 +400,15 @@ var StockViewer = (function () {
         if (hoverCoordinate.startX + width > this.context.canvas.width) {
             startX = hoverCoordinate.endX - width;
         }
-        var dY = this.context.canvas.height - this.option.layout.dateTagHeight;
+        var height = this.option.layout.volumeHeight + this.option.layout.viewerHeight;
+        var dY = height - this.option.layout.dateTagHeight;
         var lastDateTextImage = this.context.getImageData(startX, dY, copyWidth, this.option.layout.dateTagHeight);
         this.storedImages['lastDateTextImage'] = new CanvasImage(lastDateTextImage, startX, dY);
         this.context.fillStyle = this.option.style.hoverLineColor;
         this.context.fillRect(startX, dY + 2, width, this.option.layout.dateTagHeight);
         this.context.font = '13px Arial';
         this.context.fillStyle = 'white';
-        this.context.fillText(this.getDateText(record.date), startX + 5, this.context.canvas.height - 2);
+        this.context.fillText(this.getDateText(record.date), startX + 5, height - 2);
     };
     StockViewer.prototype.hoverLineMoveTo = function (index, showHoverLine) {
         var hoverRecord = this.record[index];
@@ -485,7 +491,7 @@ var StockViewer = (function () {
         this.context.beginPath();
         for (var i = 0; i < len; i++) {
             var Y = this.computePriceY(data[i]);
-            var X = this.computePriceX(indices[i]);
+            var X = this.computeIndexX(indices[i]);
             var middleX = (X.start + X.end) * 0.5;
             if (i === 0) {
                 this.context.moveTo(middleX, Y);
